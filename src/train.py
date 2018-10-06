@@ -80,11 +80,11 @@ if __name__ == '__main__':
     # replay buffer params
     parser.add_argument('--replay_buffer_size', type=int, default=int(1e5),
                         help='size of the replay buffer')
-    parser.add_argument('--use_prioritized_buffer', type=bool, default=False,
+    parser.add_argument('--use_prioritized_buffer', type=bool, default=True,
                         help='if set True, buffer uses TDerror for importance sampling')
-    parser.add_argument('--alpha', type=float, default=0.6,
+    parser.add_argument('--alpha', type=float, default=0.0,
                         help='alpha param for prioritized replay buffer')
-    parser.add_argument('--beta', type=float, default=0.4,
+    parser.add_argument('--beta', type=float, default=0.0,
                         help='beta param for prioritized replay buffer')
     parser.add_argument('--e', type=float, default=1e-8,
                         help='additive constant for priorities in prioritized replay buffer')

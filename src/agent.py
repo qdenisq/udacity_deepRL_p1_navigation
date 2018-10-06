@@ -192,22 +192,9 @@ class DQNAgentWithPrioritizedReplay:
         self.__epsilon = self.__initial_epsilon
 
     def step(self, state, action, reward, next_state, done):
-        # calc td error for new experience
-        with torch.no_grad():
-            # torch_next_state = torch.Tensor([next_state]).float().view(1, -1)
-            # torch_action = torch.Tensor([action]).long().view(1, -1)
-            # torch_state = torch.Tensor([state]).float().view(1, -1)
-            # torch_reward = torch.Tensor([reward]).float().view(1, -1)
-            # torch_done = torch.Tensor([done]).float().view(1, -1)
-            # next_action = self.__Qnetwork(torch_next_state).max(1)[1].unsqueeze(1)
-            # expected_q_values = self.__Qnetwork(torch_state).gather(1, torch_action)
-            # target_q_values = torch_reward +\
-            #     self.__gamma * self.__target_Qnetwork(torch_next_state).gather(1, next_action) * (1 - torch_done)
-            #
-            # tderror = nn.MSELoss()(expected_q_values, target_q_values.detach().view(-1, 1))
-            # self.__memory.add(state, action, reward, next_state, done, tderror.detach().numpy().squeeze() ** self.__alpha + self.__e)
-            priority = self.__memory.total() / (self.__minibatch_size - 1) + self.__e
-            self.__memory.add(state, action, reward, next_state, done, priority)
+        priority = self.__memory.total() / (self.__minibatch_size - 1) + self.__e
+        # priority = 1. + self.__e
+        self.__memory.add(state, action, reward, next_state, done, priority)
 
         if self.__step_i % self.__update_every == 0 and self.__memory.size() > self.__minibatch_size:
             # sample and train

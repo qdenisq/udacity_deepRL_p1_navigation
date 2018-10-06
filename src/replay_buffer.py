@@ -32,6 +32,7 @@ class ReplayBuffer:
 
 class PrioritizedReplayBuffer:
     def __init__(self, buffer_size, minibatch_size, seed=0):
+        self.__deque = deque(maxlen=buffer_size)
         self.__keys = np.zeros(2 * buffer_size)
         self.__experiences = np.zeros(buffer_size, dtype=object)
         self.__len = 0
@@ -43,6 +44,9 @@ class PrioritizedReplayBuffer:
 
     def add(self, state, action, reward, next_state, done, key):
         experience = self.__experience(state, action, reward, next_state, done)
+        self.__deque.append(experience)
+
+    def _add_to_tree(self, experience, key):
         idx = self.__insert_pos + self.__buffer_size
 
         self.__experiences[self.__insert_pos] = experience
@@ -51,14 +55,23 @@ class PrioritizedReplayBuffer:
 
         self.__insert_pos = (self.__insert_pos + 1) % self.__buffer_size
         self._update_tree(idx, key)
+        return idx
 
     def sample(self):
-        k = self.__minibatch_size
+        k = self.__minibatch_size - len(self.__deque)
 
         total = self.__keys[1]
         idxs = [self._sift(random.uniform(seg / k, (seg + 1) / k) * total) for seg in range(k)]
         probs = [self.__keys[i] / total for i in idxs]
         samples = [self.__experiences[i - self.__buffer_size] for i in idxs]
+
+        # add elems from deque
+        for v in self.__deque:
+            samples.append(v)
+            idx = self._add_to_tree(v, 0.)
+            idxs.append(idx)
+            probs.append(0)
+        self.__deque.clear()
 
         states = torch.Tensor([s.state for s in samples if s is not None]).float()
         actions = torch.Tensor([s.action for s in samples if s is not None]).long()
@@ -73,7 +86,7 @@ class PrioritizedReplayBuffer:
             self._update_tree(idx, key)
 
     def size(self):
-        return self.__len
+        return self.__len + len(self.__deque)
 
     def total(self):
         return self.__keys[1]
