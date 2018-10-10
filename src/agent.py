@@ -11,6 +11,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class DQNAgent:
     def __init__(self,
+                 net,
+                 target_net,
+                 device_name,
                  state_dim,
                  num_actions,
                  initial_epsilon=1.,
@@ -24,9 +27,9 @@ class DQNAgent:
                  buffer_size=int(1e5)):
         self.__state_dim = state_dim
         self.__num_actions = num_actions
-
-        self.__Qnetwork = MlpQNetwork(self.__state_dim, self.__num_actions)
-        self.__target_Qnetwork = MlpQNetwork(self.__state_dim, self.__num_actions)
+        self.__device_name = device_name
+        self.__Qnetwork = net
+        self.__target_Qnetwork = target_net
         self.__optimizer = torch.optim.Adam(self.__Qnetwork.parameters(), lr=lr)
         self.__step_i = 0
         self.__epsilon = self.__initial_epsilon = initial_epsilon
@@ -39,7 +42,7 @@ class DQNAgent:
         self.__memory = ReplayBuffer(buffer_size, minibatch_size)
 
     def choose_action(self, state, greedy=False):
-        q_s_values = self.__Qnetwork(torch.from_numpy(state).float().view(1, -1))
+        q_s_values = self.__Qnetwork(torch.from_numpy(state).float().unsqueeze(0).to(self.__device_name))
         # follow e-greedy policy if in train mode, otherwise follow greedy policy
         if not greedy and random.random() < self.__epsilon:
             action = random.randint(0, self.__num_actions - 1)
@@ -52,16 +55,18 @@ class DQNAgent:
 
     def step(self, state, action, reward, next_state, done):
         self.__memory.add(state, action, reward, next_state, done)
-
+        loss = None
         if self.__step_i % self.__update_every == 0 and self.__memory.size() > self.__minibatch_size:
             # sample and train
             samples = self.__memory.sample()
-            self.__update(samples)
+            samples = map(lambda t: t.to(self.__device_name), samples)
+            loss = self.__update(samples)
             # decay epsilon after each update
             self.__epsilon = max(self.__min_epsilon, self.__epsilon * self.__epsilon_decay)
             
             self.soft_update(self.__Qnetwork, self.__target_Qnetwork, self.__tau)
         self.__step_i += 1
+        return loss
         
     def __update(self, samples):
         states, actions, rewards, next_states, dones = samples
@@ -79,7 +84,7 @@ class DQNAgent:
         loss = nn.MSELoss()(expected_q_values, target_q_values.detach().view(-1, 1))
         loss.backward()
         self.__optimizer.step()
-        return loss
+        return loss.detach().cpu().numpy()
             
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.
@@ -98,9 +103,10 @@ class DQNAgent:
         ckpt = {
             'state_dim': self.__state_dim,
             'num_actions': self.__num_actions,
+            'device_name': self.__device_name,
             # 'replay_buffer': self.__memory,
-            'q_network': self.__Qnetwork.state_dict(),
-            'target_q_network': self.__target_Qnetwork.state_dict(),
+            'q_network': self.__Qnetwork,
+            'target_q_network': self.__target_Qnetwork,
             'optimizer': self.__optimizer.state_dict(),
             'epsilon': self.__epsilon,
             'init_epsilon': self.__initial_epsilon,
@@ -113,13 +119,16 @@ class DQNAgent:
         }
         torch.save(ckpt, fname)
 
-    def save_model(self, fname):
+    def save_model_state_dict(self, fname):
         torch.save(self.__Qnetwork.state_dict(), fname)
 
     @staticmethod
     def load_from_ckpt(fname):
         ckpt = torch.load(fname)
-        agent = DQNAgent(ckpt['state_dim'], ckpt['num_actions'])
+        net = ckpt['q_network']
+        target_net = ckpt['target_q_network']
+        device_name = ckpt['device_name']
+        agent = DQNAgent(net, target_net, device_name, ckpt['state_dim'], ckpt['num_actions'])
         agent.load_from_dict(ckpt)
         return agent
 
@@ -127,8 +136,6 @@ class DQNAgent:
         self.__state_dim = ckpt['state_dim']
         self.__num_actions = ckpt['num_actions']
         # self.__memory = ckpt['replay_buffer']
-        self.__Qnetwork.load_state_dict(ckpt['q_network'])
-        self.__target_Qnetwork.load_state_dict(ckpt['target_q_network'])
         self.__optimizer.load_state_dict(ckpt['optimizer'])
         self.__epsilon = ckpt['epsilon']
         self.__initial_epsilon = ckpt['init_epsilon']
@@ -139,13 +146,16 @@ class DQNAgent:
         self.__tau = ckpt['tau']
         self.__gamma = ckpt['gamma']
 
-    def load_model(self, fname):
+    def load_model_state_dict(self, fname):
         state_dict = torch.load(fname)
         self.__Qnetwork.load_state_dict(state_dict)
 
 
 class DQNAgentWithPrioritizedReplay:
     def __init__(self,
+                 net,
+                 target_net,
+                 device_name,
                  state_dim,
                  num_actions,
                  initial_epsilon=1.,
@@ -159,12 +169,13 @@ class DQNAgentWithPrioritizedReplay:
                  buffer_size=int(1e5),
                  alpha=0.6,
                  beta=0.4,
+                 beta_delta=0.,
                  e=1e-8):
         self.__state_dim = state_dim
         self.__num_actions = num_actions
-
-        self.__Qnetwork = MlpQNetwork(self.__state_dim, self.__num_actions)
-        self.__target_Qnetwork = MlpQNetwork(self.__state_dim, self.__num_actions)
+        self.__device_name = device_name
+        self.__Qnetwork = net
+        self.__target_Qnetwork = target_net
         self.__optimizer = torch.optim.Adam(self.__Qnetwork.parameters(), lr=lr)
         self.__step_i = 0
         self.__epsilon = self.__initial_epsilon = initial_epsilon
@@ -177,10 +188,11 @@ class DQNAgentWithPrioritizedReplay:
         self.__memory = PrioritizedReplayBuffer(buffer_size, minibatch_size)
         self.__alpha = alpha
         self.__beta = beta
+        self.__beta_delta = beta_delta
         self.__e = e
 
     def choose_action(self, state, greedy=False):
-        q_s_values = self.__Qnetwork(torch.from_numpy(state).float().view(1, -1))
+        q_s_values = self.__Qnetwork(torch.from_numpy(state).float().unsqueeze(0).to(self.__device_name))
         # follow e-greedy policy if in train mode, otherwise follow greedy policy
         if not greedy and random.random() < self.__epsilon:
             action = random.randint(0, self.__num_actions - 1)
@@ -192,19 +204,20 @@ class DQNAgentWithPrioritizedReplay:
         self.__epsilon = self.__initial_epsilon
 
     def step(self, state, action, reward, next_state, done):
-        priority = self.__memory.total() / (self.__minibatch_size - 1) + self.__e
-        # priority = 1. + self.__e
-        self.__memory.add(state, action, reward, next_state, done, priority)
-
+        self.__memory.add(state, action, reward, next_state, done, None)
+        loss = None
         if self.__step_i % self.__update_every == 0 and self.__memory.size() > self.__minibatch_size:
             # sample and train
             samples = self.__memory.sample()
-            self.__update(samples)
+            samples = map(lambda t: t.to(self.__device_name), samples)
+            loss = self.__update(samples)
             # decay epsilon after each update
-            self.__epsilon = max(self.__min_epsilon, self.__epsilon * self.__epsilon_decay)
-
             self.soft_update(self.__Qnetwork, self.__target_Qnetwork, self.__tau)
         self.__step_i += 1
+        if done:
+            self.__epsilon = max(self.__min_epsilon, self.__epsilon * self.__epsilon_decay)
+            self.__beta = min(1., self.__beta + self.__beta_delta)
+        return loss
 
     def __update(self, samples):
         states, actions, rewards, next_states, dones, idxs, probs = samples
@@ -217,14 +230,14 @@ class DQNAgentWithPrioritizedReplay:
         target_q_values = rewards.unsqueeze(1) +\
             self.__gamma * self.__target_Qnetwork(next_states).gather(1, next_action) * (1 - dones).unsqueeze(1)
 
-        losses = nn.MSELoss(reduce=False)(expected_q_values, target_q_values.detach().view(-1, 1))
-        weights = [(p * self.__memory.size()) ** (-self.__beta) for p in probs]
-        weights = [w / max(weights) for w in weights]
-        loss = torch.mean(losses * torch.Tensor(weights))
+        losses = (expected_q_values - target_q_values.detach().view(-1, 1))
+        weights = (probs * self.__memory.size()).pow(-self.__beta).to(self.__device_name)
+        weights = weights / weights.max()
+        loss = torch.mean(losses.pow(2).squeeze() * weights)
         loss.backward()
         self.__optimizer.step()
-        self.__memory.update(idxs, losses.detach().numpy().squeeze() ** self.__alpha + self.__e)
-        return loss
+        self.__memory.update(idxs.cpu().numpy(), losses.abs().detach().cpu().numpy().squeeze() ** self.__alpha + self.__e)
+        return loss.detach().cpu().numpy()
 
     @staticmethod
     def soft_update(local_model, target_model, tau):
@@ -244,9 +257,10 @@ class DQNAgentWithPrioritizedReplay:
         ckpt = {
             'state_dim': self.__state_dim,
             'num_actions': self.__num_actions,
+            'device_name': self.__device_name,
             # 'replay_buffer': self.__memory,
-            'q_network': self.__Qnetwork.state_dict(),
-            'target_q_network': self.__target_Qnetwork.state_dict(),
+            'q_network': self.__Qnetwork,
+            'target_q_network': self.__target_Qnetwork,
             'optimizer': self.__optimizer.state_dict(),
             'epsilon': self.__epsilon,
             'init_epsilon': self.__initial_epsilon,
@@ -262,13 +276,16 @@ class DQNAgentWithPrioritizedReplay:
         }
         torch.save(ckpt, fname)
 
-    def save_model(self, fname):
+    def save_model_state_dict(self, fname):
         torch.save(self.__Qnetwork.state_dict(), fname)
 
     @staticmethod
     def load_from_ckpt(fname):
         ckpt = torch.load(fname)
-        agent = DQNAgent(ckpt['state_dim'], ckpt['num_actions'])
+        net = ckpt['q_network']
+        target_net = ckpt['target_q_network']
+        device_name = ckpt['device_name']
+        agent = DQNAgent(net, target_net, device_name, ckpt['state_dim'], ckpt['num_actions'])
         agent.load_from_dict(ckpt)
         return agent
 
@@ -276,8 +293,6 @@ class DQNAgentWithPrioritizedReplay:
         self.__state_dim = ckpt['state_dim']
         self.__num_actions = ckpt['num_actions']
         # self.__memory = ckpt['replay_buffer']
-        self.__Qnetwork.load_state_dict(ckpt['q_network'])
-        self.__target_Qnetwork.load_state_dict(ckpt['target_q_network'])
         self.__optimizer.load_state_dict(ckpt['optimizer'])
         self.__epsilon = ckpt['epsilon']
         self.__initial_epsilon = ckpt['init_epsilon']
@@ -291,8 +306,6 @@ class DQNAgentWithPrioritizedReplay:
         self.__beta = ckpt['beta']
         self.__e = ckpt['e']
 
-    def load_model(self, fname):
+    def load_model_state_dict(self, fname):
         state_dict = torch.load(fname)
         self.__Qnetwork.load_state_dict(state_dict)
-
-

@@ -1,11 +1,15 @@
 import argparse
 import datetime
 import pickle
+import matplotlib as mpl
+mpl.use('TkAgg')  # Mac OS specific
 import matplotlib.pyplot as plt
+
 from unityagents import UnityEnvironment
 
 from model import DQNTrainer
 from agent import DQNAgent, DQNAgentWithPrioritizedReplay
+from neural_net import ConvNet, MlpQNetwork
 
 
 def train(**kwargs):
@@ -13,8 +17,15 @@ def train(**kwargs):
     brain_name = env.brain_names[0]
     state_dim = env.brains[brain_name].vector_observation_space_size
     num_actions = env.brains[brain_name].vector_action_space_size
+    beta_delta = (1 - kwargs['beta']) / (kwargs['num_episodes']*0.8)
+
+    net = MlpQNetwork(state_dim, num_actions)
+    target_net = MlpQNetwork(state_dim, num_actions)
+
     if kwargs['use_prioritized_buffer']:
-        agent = DQNAgentWithPrioritizedReplay(state_dim,
+        agent = DQNAgentWithPrioritizedReplay(net,
+                         target_net,
+                         state_dim,
                          num_actions,
                          kwargs['init_epsilon'],
                          kwargs['epsilon_decay'],
@@ -27,10 +38,13 @@ def train(**kwargs):
                          kwargs['replay_buffer_size'],
                          kwargs['alpha'],
                          kwargs['beta'],
+                         beta_delta,
                          kwargs['e']
                          )  # create agent
     else:
-        agent = DQNAgent(state_dim,
+        agent = DQNAgent(net,
+                     target_net,
+                     state_dim,
                      num_actions,
                      kwargs['init_epsilon'],
                      kwargs['epsilon_decay'],
@@ -57,8 +71,6 @@ def train(**kwargs):
     plt.plot(scores)
     plt.show()
 
-    pass
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -71,7 +83,7 @@ if __name__ == '__main__':
     parser.add_argument('--reports_dir', type=str, default='../reports',
                         help='basedir for saving training reports')
     # train params
-    parser.add_argument('--num_episodes', type=int, default=1000,
+    parser.add_argument('--num_episodes', type=int, default=100,
                         help='number of episodes to train an agent')
     parser.add_argument('--batch_size', type=int, default=100,
                         help='batch size')
@@ -82,9 +94,9 @@ if __name__ == '__main__':
                         help='size of the replay buffer')
     parser.add_argument('--use_prioritized_buffer', type=bool, default=True,
                         help='if set True, buffer uses TDerror for importance sampling')
-    parser.add_argument('--alpha', type=float, default=0.0,
+    parser.add_argument('--alpha', type=float, default=0.6,
                         help='alpha param for prioritized replay buffer')
-    parser.add_argument('--beta', type=float, default=0.0,
+    parser.add_argument('--beta', type=float, default=0.4,
                         help='beta param for prioritized replay buffer')
     parser.add_argument('--e', type=float, default=1e-8,
                         help='additive constant for priorities in prioritized replay buffer')

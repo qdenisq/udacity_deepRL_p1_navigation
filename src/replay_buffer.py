@@ -66,11 +66,12 @@ class PrioritizedReplayBuffer:
         samples = [self.__experiences[i - self.__buffer_size] for i in idxs]
 
         # add elems from deque
+        size = self.size()
         for v in self.__deque:
             samples.append(v)
-            idx = self._add_to_tree(v, 0.)
+            idx = self._add_to_tree(v, 1. / size)
             idxs.append(idx)
-            probs.append(0)
+            probs.append(1. / size)
         self.__deque.clear()
 
         states = torch.Tensor([s.state for s in samples if s is not None]).float()
@@ -78,7 +79,8 @@ class PrioritizedReplayBuffer:
         rewards = torch.Tensor([s.reward for s in samples if s is not None]).float()
         next_states = torch.Tensor([s.next_state for s in samples if s is not None]).float()
         dones = torch.Tensor([s.done for s in samples if s is not None]).float()
-
+        idxs = torch.Tensor(idxs).long()
+        probs = torch.Tensor(probs).float()
         return states, actions, rewards, next_states, dones, idxs, probs
 
     def update(self, idxs, new_keys):
