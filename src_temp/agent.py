@@ -1,14 +1,14 @@
 import random
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
 
 from replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
 class DQNAgentBase:
     def __init__(self, net, target_net, action_dim=None, device=None, update_every=4, minibatch_size=64,
-                 tau=0.99, gamma=0.99, lr=5e-4, **kwargs):
+                 tau=1e-3, gamma=0.99, lr=5e-4, **kwargs):
         self.net = net
         self.target_net = target_net
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=lr)
@@ -24,7 +24,7 @@ class DQNAgentBase:
 
     def act(self, state, eps):
         with torch.no_grad():
-            action_values = self.net(torch.from_numpy(state).float().unsqueeze(0).to(self.__device))
+            action_values = self.net(torch.from_numpy(state).float().to(self.__device))
         if random.random() < eps:
             action = random.randint(0, self.__action_dim - 1)
         else:
@@ -33,14 +33,13 @@ class DQNAgentBase:
 
     def step(self, state, action, reward, next_state, done):
         self.memory.add(state, action, reward, next_state, done)
-        loss = None
+        loss = 0
+        self.__step_i += 1
         if self.__step_i % self.__update_every == 0 and self.memory.size() > self.__minibatch_size:
             # sample and train
             samples = self.memory.sample()
-            # samples = map(lambda t: t.to(self.__device), samples)
             loss = self._learn(samples)
             self.soft_update()
-        self.__step_i += 1
         return loss
 
     def soft_update(self):
@@ -48,7 +47,19 @@ class DQNAgentBase:
             target_param.data.copy_(self.__tau*local_param.data + (1.0-self.__tau)*target_param.data)
 
     def save(self, fname):
+        ckpt = {'net': self.net,
+                'target_net': self.target_net,
+                'action_dim': self.__action_dim,
+                'device': self.__device
+                }
+        torch.save(ckpt, fname)
         pass
+
+    @classmethod
+    def load(cls, fname):
+        ckpt = torch.load(fname)
+        obj = cls(ckpt['net'], ckpt['target_net'], action_dim=ckpt['action_dim'], device=ckpt['device'])
+        return obj
 
     def _learn(self, samples):
         pass
@@ -61,10 +72,11 @@ class DQNAgent(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones = samples
-        expected_q_values = self.net(states).gather(1, actions.view(-1, 1))
+        expected_q_values = self.net(states).gather(1, actions)
         # DQN target
-        target_q_values = rewards + self.gamma * self.target_net(next_states).detach().max(1)[0] * (1 - dones)
-        loss = nn.MSELoss()(expected_q_values, target_q_values.view(-1, 1))
+        target_q_values_next = self.target_net(next_states).detach().max(1)[0].unsqueeze(1)
+        target_q_values = rewards + (self.gamma * target_q_values_next * (1 - dones))
+        loss = F.mse_loss(expected_q_values, target_q_values)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -81,9 +93,8 @@ class DDQNAgent(DQNAgentBase):
         expected_q_values = self.net(states).gather(1, actions.view(-1, 1))
         # Double DQN target
         next_a = self.net(next_states).max(1)[1].unsqueeze(1)
-        target_q_values = rewards.unsqueeze(1) + \
-                          self.gamma * self.target_net(next_states).gather(1, next_a).detach() * (1-dones).unsqueeze(1)
-        loss = nn.MSELoss()(expected_q_values, target_q_values)
+        target_q_values = rewards + self.gamma * self.target_net(next_states).gather(1, next_a).detach() * (1-dones)
+        loss = F.mse_loss(expected_q_values, target_q_values)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -101,9 +112,9 @@ class DQNAgentPER(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones, idxs, probs = samples
-        expected_q_values = self.net(states).gather(1, actions.view(-1, 1))
+        expected_q_values = self.net(states).gather(1, actions)
         # DQN target
-        target_q_values = (rewards + self.gamma * self.target_net(next_states).max(1)[0] * (1 - dones)).unsqueeze(1)
+        target_q_values = rewards + self.gamma * self.target_net(next_states).max(1)[0] * (1 - dones)
         td_err = expected_q_values - target_q_values  # calc td error
         weights = (probs * self.memory.size()).pow(-self.__beta).to(self.__device)
         weights = weights / weights.max()
@@ -127,11 +138,11 @@ class DDQNAgentPER(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones, idxs, probs = samples
-        expected_q_values = self.net(states).gather(1, actions.view(-1, 1))
+        expected_q_values = self.net(states).gather(1, actions)
         # DDQN target
         next_a = self.net(next_states).max(1)[1].unsqueeze(1)
-        target_q_values = rewards.unsqueeze(1) + \
-                          self.gamma * self.target_net(next_states).gather(1, next_a) * (1 - dones).unsqueeze(1)
+        target_q_values = rewards + \
+                          self.gamma * self.target_net(next_states).gather(1, next_a) * (1 - dones)
         td_err = expected_q_values - target_q_values  # calc td error
         weights = (probs * self.memory.size()).pow(-self.__beta).to(self.__device)
         weights = weights / weights.max()

@@ -11,6 +11,7 @@ class ReplayBuffer:
         self.__minibatch_size = minibatch_size
         self.__seed = random.seed(seed)
         self.__device = kwargs['device']
+
     def add(self, state, action, reward, next_state, done):
         experience = self.__experience(state, action, reward, next_state, done)
         self.__deque.append(experience)
@@ -18,19 +19,11 @@ class ReplayBuffer:
     def sample(self):
         k = self.__minibatch_size
         experiences = random.sample(self.__deque, k)
-        states = torch.from_numpy(np.stack([e.state for e in experiences if e is not None])).float().to(self.__device)
-        actions = torch.from_numpy(np.stack([e.action for e in experiences if e is not None])).long().to(self.__device)
-        rewards = torch.from_numpy(np.stack([e.reward for e in experiences if e is not None])).float().to(self.__device)
-        next_states = torch.from_numpy(np.stack([e.next_state for e in experiences if e is not None])).float().to(self.__device)
-        dones = torch.from_numpy(np.stack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(self.__device)
-        # torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(self.__device)
-        # torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(self.__device)
-        # torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(self.__device)
-        # states = torch.Tensor([s.state for s in samples if s is not None]).float()
-        # actions = torch.Tensor([s.action for s in samples if s is not None]).long()
-        # rewards = torch.Tensor([s.reward for s in samples if s is not None]).float()
-        # next_states = torch.Tensor([s.next_state for s in samples if s is not None]).float()
-        # dones = torch.Tensor([s.done for s in samples if s is not None]).float()
+        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(self.__device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(self.__device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(self.__device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(self.__device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(self.__device)
 
         return states, actions, rewards, next_states, dones
 
@@ -82,13 +75,13 @@ class PrioritizedReplayBuffer:
             probs.append(1. / size)
         self.__deque.clear()
 
-        states = torch.Tensor([s.state for s in samples if s is not None]).float()
-        actions = torch.Tensor([s.action for s in samples if s is not None]).long()
-        rewards = torch.Tensor([s.reward for s in samples if s is not None]).float()
-        next_states = torch.Tensor([s.next_state for s in samples if s is not None]).float()
-        dones = torch.Tensor([s.done for s in samples if s is not None]).float()
-        idxs = torch.Tensor(idxs).long()
-        probs = torch.Tensor(probs).float()
+        states = torch.from_numpy(np.vstack([e.state for e in samples if e is not None])).float().to(self.__device)
+        actions = torch.from_numpy(np.vstack([e.action for e in samples if e is not None])).long().to(self.__device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in samples if e is not None])).float().to(self.__device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in samples if e is not None])).float().to(self.__device)
+        dones = torch.from_numpy(np.vstack([e.done for e in samples if e is not None]).astype(np.uint8)).float().to(self.__device)
+        idxs = torch.Tensor(idxs).long().to(self.__device)
+        probs = torch.Tensor(probs).float().to(self.__device)
         return states, actions, rewards, next_states, dones, idxs, probs
 
     def update(self, idxs, new_keys):
