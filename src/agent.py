@@ -64,6 +64,13 @@ class DQNAgentBase:
     def _learn(self, samples):
         pass
 
+    def decay_learning_rate(self, decay):
+        # sets the learning rate to the initial LR decayed by 0.1 every 'each' iterations
+        state_dict = self.optimizer.state_dict()
+        for param_group in state_dict['param_groups']:
+            param_group['lr'] = param_group['lr'] * decay
+        self.optimizer.load_state_dict(state_dict)
+
 
 class DQNAgent(DQNAgentBase):
     def __init__(self, net, target_net, **kwargs):
@@ -72,9 +79,9 @@ class DQNAgent(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones = samples
-        expected_q_values = self.net(states).gather(1, actions)
+        expected_q_values = self.net(states, training=True).gather(1, actions)
         # DQN target
-        target_q_values_next = self.target_net(next_states).detach().max(1)[0].unsqueeze(1)
+        target_q_values_next = self.target_net(next_states, training=True).detach().max(1)[0].unsqueeze(1)
         target_q_values = rewards + (self.gamma * target_q_values_next * (1 - dones))
         loss = F.mse_loss(expected_q_values, target_q_values)
         self.optimizer.zero_grad()
@@ -90,9 +97,9 @@ class DDQNAgent(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones = samples
-        expected_q_values = self.net(states).gather(1, actions.view(-1, 1))
+        expected_q_values = self.net(states, training=True).gather(1, actions.view(-1, 1))
         # Double DQN target
-        next_a = self.net(next_states).max(1)[1].unsqueeze(1)
+        next_a = self.net(next_states, training=True).max(1)[1].unsqueeze(1)
         target_q_values = rewards + self.gamma * self.target_net(next_states).gather(1, next_a).detach() * (1-dones)
         loss = F.mse_loss(expected_q_values, target_q_values)
         self.optimizer.zero_grad()
@@ -112,9 +119,9 @@ class DQNAgentPER(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones, idxs, probs = samples
-        expected_q_values = self.net(states).gather(1, actions)
+        expected_q_values = self.net(states, training=True).gather(1, actions)
         # DQN target
-        target_q_values_next = self.target_net(next_states).detach().max(1)[0].unsqueeze(1)
+        target_q_values_next = self.target_net(next_states, training=True).detach().max(1)[0].unsqueeze(1)
         target_q_values = rewards + self.gamma * target_q_values_next * (1 - dones)
         td_err = expected_q_values - target_q_values  # calc td error
         weights = (probs * self.memory.size()).pow(-self.__beta).to(self.device)
@@ -145,9 +152,9 @@ class DDQNAgentPER(DQNAgentBase):
 
     def _learn(self, samples):
         states, actions, rewards, next_states, dones, idxs, probs = samples
-        expected_q_values = self.net(states).gather(1, actions)
+        expected_q_values = self.net(states, training=True).gather(1, actions)
         # DDQN target
-        next_a = self.net(next_states).max(1)[1].unsqueeze(1)
+        next_a = self.net(next_states, training=True).max(1)[1].unsqueeze(1)
         target_q_values = rewards + \
                           self.gamma * self.target_net(next_states).gather(1, next_a) * (1 - dones)
         td_err = expected_q_values - target_q_values  # calc td error

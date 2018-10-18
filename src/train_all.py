@@ -7,25 +7,25 @@ def main(**kwargs):
     visual_banana_env_fname = "../VisualBanana_env/Banana.exe"
 
     algs = ['dqn', 'dqn']
-    per = [False, True]
+    per = [True, True]
 
-    kwargs['num_episodes'] = 2000
+    kwargs['num_episodes'] = 1000
 
     kwargs['worker_id'] = 0
     # run simple banana
 
-    # kwargs['env_type'] = 'simple'
-    # kwargs['env_file'] = banana_env_fname
+    kwargs['env_type'] = 'simple'
+    kwargs['env_file'] = banana_env_fname
 
-    # for a in algs:
-    #     kwargs['agent_type'] = a
-    #     for p in per:
-    #         kwargs['use_prioritized_buffer'] = p
-    #         print('-----Train config: \nEnv: {} \nAgent type: {} \nPER: {}\n\n'
-    #               .format(kwargs['env_type'], kwargs['agent_type'], kwargs['use_prioritized_buffer']))
-    #         train(**kwargs)
-    #         time.sleep(2)
-    #         kwargs['worker_id'] += 1
+    for a in algs:
+        kwargs['agent_type'] = a
+        for p in per:
+            kwargs['use_prioritized_buffer'] = p
+            print('-----Train config: \nEnv: {} \nAgent type: {} \nPER: {}\n\n'
+                  .format(kwargs['env_type'], kwargs['agent_type'], kwargs['use_prioritized_buffer']))
+            train(**kwargs)
+            time.sleep(2)
+            kwargs['worker_id'] += 1
 
     # run visual banana
     kwargs['env_type'] = 'visual'
@@ -52,20 +52,20 @@ if __name__ == '__main__':
                         help='number of episodes to train an agent')
     parser.add_argument('--num_episodes', type=int, default=1000,
                         help='number of episodes to train an agent')
-    parser.add_argument('--batch_size', type=int, default=128,
+    parser.add_argument('--batch_size', type=int, default=100,
                         help='batch size')
-    parser.add_argument('--lr', type=float, default=5e-4,
+    parser.add_argument('--lr', type=float, default=1e-4,
                         help='learning rate')
     parser.add_argument('--num_stacked_frames', type=int, default=4,
                         help='number of frames to stack for state representation')
     # replay buffer params
-    parser.add_argument('--replay_buffer_size', type=int, default=50000,
+    parser.add_argument('--replay_buffer_size', type=int, default=100000,
                         help='size of the replay buffer')
     parser.add_argument('--use_prioritized_buffer', type=bool, default=False,
                         help='if set True, use prioritized experience replay buffer')
     parser.add_argument('--alpha', type=float, default=0.6,
                         help='alpha param for prioritized replay buffer')
-    parser.add_argument('--beta', type=float, default=0.4,
+    parser.add_argument('--beta', type=float, default=0.01,
                         help='beta param for prioritized replay buffer')
     parser.add_argument('--e', type=float, default=1e-8,
                         help='additive constant for priorities in prioritized replay buffer')
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # q_net params
     parser.add_argument('--hidden_size', type=int, default=128,
                         help='size of the hidden layer')
-    parser.add_argument('--use_gpu', type=bool, default=True,
+    parser.add_argument('--use_gpu', type=bool, default=False,
                         help='whether use gpu or not')
 
     args = parser.parse_args()

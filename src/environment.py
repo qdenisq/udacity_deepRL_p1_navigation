@@ -1,7 +1,5 @@
 from unityagents import UnityEnvironment
 import numpy as np
-from collections import deque
-import random
 
 class BananaEnvironment:
     def __init__(self, file_name=None, **kwargs):

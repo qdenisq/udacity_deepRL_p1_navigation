@@ -25,7 +25,9 @@ def train(**kwargs):
 
     kwargs['device'] = "cuda:0" if torch.cuda.is_available() and kwargs['use_gpu'] else "cpu"
     torch.manual_seed(0)
+    torch.cuda.manual_seed_all(0)
     random.seed(0)
+    np.random.seed(0)
     if kwargs['env_type'] == 'visual':
         net = ConvQNetwork(state_dim, action_dim).to(kwargs['device'])
         target_net = ConvQNetwork(state_dim, action_dim).to(kwargs['device'])
@@ -50,12 +52,17 @@ def train(**kwargs):
     # save agent
     dt = str(datetime.datetime.now().strftime("%m_%d_%Y_%I_%M_%p"))
     per = 'PER' if kwargs['use_prioritized_buffer'] else ''
-    model_fname = kwargs['model_dir'] + '/' + kwargs['env_type'] + '/{}_agent_{}_{}.pt'.format(kwargs['agent_type'], per, dt)
+    model_fname = kwargs['model_dir']+'/'+kwargs['env_type']+'/{}_agent_{}_{}.pt'.format(kwargs['agent_type'], per, dt)
     agent.save(model_fname)
 
     # save scores
-    scores_fname = kwargs['reports_dir'] + '/' + kwargs['env_type'] + '/{}_agent_{}_{}'.format(kwargs['agent_type'], per, dt)
+    scores_fname = kwargs['reports_dir']+'/'+kwargs['env_type']+'/{}_agent_{}_{}'.format(kwargs['agent_type'], per, dt)
     np.save(scores_fname, np.array(scores))
+
+    # save scores
+    losses_fname = kwargs['reports_dir']+'/'+kwargs['env_type']+'/{}_agent_{}_loss_{}'.format(kwargs['agent_type'], per, dt)
+    np.save(scores_fname, np.array(losses_fname))
+
     env.close()
     pass
 
