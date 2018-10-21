@@ -2,12 +2,13 @@ import numpy as np
 
 
 class DQN:
-    def __init__(self, env, agent, initial_eps=1.0, min_eps=0.01, eps_decay=0.995, **kwargs):
+    def __init__(self, env, agent, initial_eps=1.0, min_eps=0.01, eps_decay=0.995, lr_decay=1.0, **kwargs):
         self.__env = env
         self.__agent = agent
         self.__eps = self.__eps_init = initial_eps
         self.__min_eps = min_eps
         self.__eps_decay = eps_decay
+        self.__lr_decay = lr_decay
 
     def train(self, num_episodes, target_score=18.0, verbose=1):
         solved = False
@@ -24,8 +25,7 @@ class DQN:
                 loss += self.__agent.step(state, action, reward, next_state, done)  # agent's update routine
                 score += reward
                 state = next_state
-            self.__eps = 1 / i
-            # self.__eps = max(self.__min_eps, self.__eps * self.__eps_decay)  # decay epsilon
+            self.__eps = max(self.__min_eps, self.__eps * self.__eps_decay)  # decay epsilon
             scores.append(score)  # track scores
             losses.append(loss)  # track losses
 
@@ -33,7 +33,7 @@ class DQN:
             avg_loss = np.mean(losses[max(len(losses) - 100, 0):])
 
             if i % 100 == 0:
-                self.__agent.decay_learning_rate(0.8)
+                self.__agent.decay_learning_rate(self.__lr_decay)  # decay learning rate
 
             if not solved and avg_score > target_score:
                 solved = True

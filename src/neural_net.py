@@ -28,18 +28,14 @@ class ConvQNetwork(nn.Module):
         super(ConvQNetwork, self).__init__()
         self.__state_dim = list(state_dim)
         in_channels = state_dim[1]
-        num_filters = [128, 256, 256, 64]
+        num_filters = [128, 256, 256]
         # self.__bn0 = nn.BatchNorm3d(in_channels)
-        self.__drop0 = nn.Dropout(p=0.2)
-        self.__conv1 = torch.nn.Conv3d(in_channels, num_filters[0], kernel_size=(1, 4, 4), stride=(1, 2, 2))
+        self.__conv1 = torch.nn.Conv3d(in_channels, num_filters[0], kernel_size=(1, 3, 3), stride=(1, 3, 3))
         self.__bn1 = nn.BatchNorm3d(num_filters[0])
-        self.__drop1 = nn.Dropout(p=0.2)
-        self.__conv2 = torch.nn.Conv3d(num_filters[0], num_filters[1], kernel_size=(1, 4, 4), stride=(1, 2, 2))
+        self.__conv2 = torch.nn.Conv3d(num_filters[0], num_filters[1], kernel_size=(1, 3, 3), stride=(1, 3, 3))
         self.__bn2 = nn.BatchNorm3d(num_filters[1])
-        self.__conv3 = torch.nn.Conv3d(num_filters[1], num_filters[2], kernel_size=(1, 3, 3), stride=(1, 1, 1))
+        self.__conv3 = torch.nn.Conv3d(num_filters[1], num_filters[2], kernel_size=(4, 3, 3), stride=(1, 3, 3))
         self.__bn3 = nn.BatchNorm3d(num_filters[2])
-        self.__conv4 = torch.nn.Conv3d(num_filters[2], num_filters[3], kernel_size=(4, 4, 4), stride=(2, 2, 2))
-        self.__bn4 = nn.BatchNorm3d(num_filters[3])
         self.__in_fc = self._get_shape()
         self.__num_actions = num_actions
 
@@ -47,15 +43,9 @@ class ConvQNetwork(nn.Module):
         self.__fc_out = nn.Linear(1024, self.__num_actions)
 
     def forward(self, x, training=False):
-        # x = self.__bn0(x)
-        if training:
-           x = self.__drop0(x)
         x = F.relu(self.__bn1(self.__conv1(x)))
-        if training:
-           x = self.__drop1(x)
         x = F.relu(self.__bn2(self.__conv2(x)))
         x = F.relu(self.__bn3(self.__conv3(x)))
-        x = F.relu(self.__bn4(self.__conv4(x)))
         x = x.view(x.size(0), -1)
 
         x = F.relu(self.__fc1(x))
@@ -67,7 +57,6 @@ class ConvQNetwork(nn.Module):
         x = F.relu(self.__bn1(self.__conv1(x)))
         x = F.relu(self.__bn2(self.__conv2(x)))
         x = F.relu(self.__bn3(self.__conv3(x)))
-        x = F.relu(self.__bn4(self.__conv4(x)))
         size = x.data.view(1, -1).size(1)
         return size
 

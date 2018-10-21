@@ -4,20 +4,16 @@ from neural_net import MlpQNetwork, ConvQNetwork
 from dqn import DQN
 import argparse
 import random
-import matplotlib.pyplot as plt
 import torch
 import datetime
 import numpy as np
-import matplotlib as mpl
-mpl.use('TkAgg')  # Mac OS specific
 
 
 def train(**kwargs):
-    kwargs['worker_id'] = 0
     if kwargs['env_type'] == 'visual':
-        env = VisualBananaEnvironment(file_name=kwargs['env_file'], num_stacked_frames=kwargs['num_stacked_frames'], worker_id=kwargs['worker_id'])
+        env = VisualBananaEnvironment(file_name=kwargs['env_file'], num_stacked_frames=kwargs['num_stacked_frames'])
     elif kwargs['env_type'] == 'simple':
-        env = BananaEnvironment(file_name=kwargs['env_file'], worker_id=kwargs['worker_id'])
+        env = BananaEnvironment(file_name=kwargs['env_file'])
     else:
         raise KeyError('unknown env type')
     state_dim = env.get_state_dim()
@@ -61,7 +57,7 @@ def train(**kwargs):
 
     # save scores
     losses_fname = kwargs['reports_dir']+'/'+kwargs['env_type']+'/{}_agent_{}_loss_{}'.format(kwargs['agent_type'], per, dt)
-    np.save(scores_fname, np.array(losses_fname))
+    np.save(losses_fname, np.array(losses))
 
     env.close()
     pass
@@ -88,6 +84,8 @@ if __name__ == '__main__':
                         help='batch size')
     parser.add_argument('--lr', type=float, default=5e-4,
                         help='learning rate')
+    parser.add_argument('--lr_decay', type=float, default=1.0,
+                        help='decay of the learning rate each 100 episodes')
     parser.add_argument('--num_stacked_frames', type=int, default=4,
                         help='number of frames to stack for state representation')
     # replay buffer params
