@@ -1,6 +1,7 @@
 from unityagents import UnityEnvironment
 import numpy as np
 
+
 class BananaEnvironment:
     def __init__(self, file_name=None, **kwargs):
         self.__env = UnityEnvironment(file_name=file_name, seed=1234)  # create environment
@@ -54,6 +55,9 @@ class VisualBananaEnvironment:
         obs = env_info.visual_observations[0].transpose((3, 0, 1, 2))
         self.__cur_state = np.zeros((1, obs.shape[0], self.__num_stacked_frames, obs.shape[2], obs.shape[3]))
         self.__cur_state[0, :, 0, :, :] = obs.squeeze()
+        self.__cur_state[0, :, 1, :, :] = obs.squeeze()
+        self.__cur_state[0, :, 2, :, :] = obs.squeeze()
+        self.__cur_state[0, :, 3, :, :] = obs.squeeze()
         return self.__cur_state
 
     def get_state_dim(self):

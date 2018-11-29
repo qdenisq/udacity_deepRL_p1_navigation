@@ -1,22 +1,34 @@
 # Udacity Deep Reinforcment Learning Nanodegree: project 1
 
-## 1 - Introduction
-For this project, you will train an agent to navigate (and collect bananas!) in a large, square world.
+[image1]: https://user-images.githubusercontent.com/10624937/42135619-d90f2f28-7d12-11e8-8823-82b970a54d7e.gif "Trained Agent"
 
-Trained Agent
+### 1 - Introduction
 
-A reward of +1 is provided for collecting a yellow banana, and a reward of -1 is provided for collecting a blue banana. Thus, the goal of your agent is to collect as many yellow bananas as possible while avoiding blue bananas.
+For this project, you will train an agent to navigate (and collect bananas!) in a large, square world.  
 
-The state space has 37 dimensions and contains the agent's velocity, along with ray-based perception of objects around agent's forward direction. Given this information, the agent has to learn how to best select actions. Four discrete actions are available, corresponding to:
+![Trained Agent][image1]
 
-- `0` - move forward.
-- `1` - move backward.
-- `2` - turn left.
-- `3` - turn right.
+A reward of +1 is provided for collecting a yellow banana, and a reward of -1 is provided for collecting a blue banana.  Thus, the goal of your agent is to collect as many yellow bananas as possible while avoiding blue bananas.  
+
+The state space has 37 dimensions and contains the agent's velocity, along with ray-based perception of objects around agent's forward direction.  Given this information, the agent has to learn how to best select actions.  Four discrete actions are available, corresponding to:
+- **`0`** - move forward.
+- **`1`** - move backward.
+- **`2`** - turn left.
+- **`3`** - turn right.
 
 The task is episodic, and in order to solve the environment, your agent must get an average score of +13 over 100 consecutive episodes.
 
-## 2 - Project Structure
+### 2 - Getting Started
+
+1. Download the environment from one of the links below.  You need only select the environment that matches your operating system:
+    - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Linux.zip)
+    - Mac OSX: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana.app.zip)
+    - Windows (32-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Windows_x86.zip)
+    - Windows (64-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Windows_x86_64.zip)
+    
+    (_For Windows users_) Check out [this link](https://support.microsoft.com/en-us/help/827218/how-to-determine-whether-a-computer-is-running-a-32-bit-version-or-64) if you need help with determining if your computer is running a 32-bit version or 64-bit version of the Windows operating system.
+
+## 3 - Project Structure
 - folder `Banana_env` contains simple banana environment with continuous state space
 - folder `VisualBanana_env` contains banana environment with pixel state representation (`84*84` RGB image) 
 - folder `data/models` contains saved trained models
@@ -31,33 +43,30 @@ The task is episodic, and in order to solve the environment, your agent must get
   - `play.py`  script for running trained agent
   - `plot_graphs.ipynb`  notebook for plotting training scores
 
-## 3 - Implementation Notes
+## 4 - Training
 
-These are changes that seem to improve training procedure:
-- Decay learning rate each 100 episode by 0.8: `lr = lr*0.8`
-This helps to keep agent's and target networks similar to each other and prevents loss increase significantly, which lead to more stable training
-- For Prioritized Experience Replay push most recent samples that have not been used in training yet in the next minibatch and then after the update push them into the sum tree structure with new probabilities. This lets us forget about initial probabilities for new samples and also follows the idea that new samples reflect the actual agents policy and probably has a greater potential to learn something from them.
+To train the agent you need to run the following script:
+>```console
+> (drlnd) $ python3 ./train.py --env_file=[path to the environment file] --env_type='simple'
+>```
 
-## 4 - Experiment Settings
+You can also pass additional optional arguments to specify all hyperparameters used in the training.
+To see the list of these optional parameters, run the following script:
+>```console
+> (drlnd) $ python3 ./train.py -h
+>```
 
-These are hyperparameters used in the training:
+**Note**
+To train the agent in the visual banana environment, pass `--env_type='visual':
+>```console
+> (drlnd) $ python3 ./train.py --env_file=[path to the environment file] --env_type='visual'
+>```
 
-Agent |Learning rate |Learning rate decay| Epsilon initial | Epsilon decay | Epsilon min | Minibatch size | Gamma | Tau
----|---|---|---|---|---|---|---|---
-DQN             |5e-4|0.8|1.0|0.95|0.01|100|0.99|0.001
-Double DQN      |5e-4|0.8|1.0|0.95|0.01|100|0.99|0.001
-DQN + PER       |5e-4|0.8|1.0|0.95|0.01|100|0.99|0.001
-Double DQN + PER|5e-4|0.8|1.0|0.95|0.01|100|0.99|0.001
+## 5 - Play
+To play the trained agent, you need to run the following script
 
-
-## 5 - Experiment Results
-
-### 5.1 - Simple Banana Environment
-
-Following are training results on the simple banana environment.
-
-![alt text](rewards_simple.png "Rewards")
-
-![alt text](losses_simple.png "Rewards")
+>```console
+> (drlnd) $ python3 ./play.py --env_file=[path to the environment file] --agent_fname=[path to the saved agent's file]
+>``` 
 
 

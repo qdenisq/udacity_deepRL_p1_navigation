@@ -20,7 +20,6 @@ def play(**kwargs):
         state = env.reset(train_mode=False)
         while not done:
             action = agent.act(state, eps=0.)
-            env.step(action)
             state, reward, done = env.step(action)  # roll out transition
             score += reward
             print("\r play #{}, reward: {} | score: {}".format(i+1, reward, score), end='')
@@ -29,8 +28,6 @@ def play(**kwargs):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('run_name', type=str, default='Visual Banana Collector',
-                        help='tag for current run')
     parser.add_argument('--env_file', type=str,
                         help='file path of Unity environment')
     parser.add_argument('--agent_fname', type=str,

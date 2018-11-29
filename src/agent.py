@@ -1,9 +1,7 @@
+from replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 import random
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-
-from replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
 class DQNAgentBase:
@@ -23,8 +21,10 @@ class DQNAgentBase:
         pass
 
     def act(self, state, eps):
+        self.net.eval()
         with torch.no_grad():
             action_values = self.net(torch.from_numpy(state).float().to(self.device))
+        self.net.train()
         if random.random() < eps:
             action = random.randint(0, self.__action_dim - 1)
         else:
@@ -65,7 +65,6 @@ class DQNAgentBase:
         pass
 
     def decay_learning_rate(self, decay):
-        # sets the learning rate to the initial LR decayed by 0.1 every 'each' iterations
         state_dict = self.optimizer.state_dict()
         for param_group in state_dict['param_groups']:
             param_group['lr'] = param_group['lr'] * decay

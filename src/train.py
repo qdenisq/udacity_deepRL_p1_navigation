@@ -3,7 +3,6 @@ from agent import DQNAgent, DDQNAgent, DQNAgentPER, DDQNAgentPER
 from neural_net import MlpQNetwork, ConvQNetwork
 from dqn import DQN
 import argparse
-import random
 import torch
 import datetime
 import numpy as np
@@ -20,16 +19,12 @@ def train(**kwargs):
     action_dim = env.get_action_dim()
 
     kwargs['device'] = "cuda:0" if torch.cuda.is_available() and kwargs['use_gpu'] else "cpu"
-    torch.manual_seed(0)
-    torch.cuda.manual_seed_all(0)
-    random.seed(0)
-    np.random.seed(0)
     if kwargs['env_type'] == 'visual':
-        net = ConvQNetwork(state_dim, action_dim).to(kwargs['device'])
-        target_net = ConvQNetwork(state_dim, action_dim).to(kwargs['device'])
+        net = ConvQNetwork(state_dim, action_dim, **kwargs).to(kwargs['device'])
+        target_net = ConvQNetwork(state_dim, action_dim, **kwargs).to(kwargs['device'])
     elif kwargs['env_type'] == 'simple':
-        net = MlpQNetwork(state_dim, action_dim).to(kwargs['device'])
-        target_net = MlpQNetwork(state_dim, action_dim).to(kwargs['device'])
+        net = MlpQNetwork(state_dim, action_dim, **kwargs).to(kwargs['device'])
+        target_net = MlpQNetwork(state_dim, action_dim, **kwargs).to(kwargs['device'])
     else:
         raise KeyError('unknown env type')
 
@@ -65,8 +60,6 @@ def train(**kwargs):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('run_name', type=str, default='Visual Banana Collector',
-                        help='tag for current run')
     parser.add_argument('--env_file', type=str,
                         help='file path of Unity environment')
     parser.add_argument('--env_type', type=str,
@@ -80,16 +73,16 @@ if __name__ == '__main__':
                         help='number of episodes to train an agent')
     parser.add_argument('--num_episodes', type=int, default=1000,
                         help='number of episodes to train an agent')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=128,
                         help='batch size')
-    parser.add_argument('--lr', type=float, default=5e-4,
+    parser.add_argument('--lr', type=float, default=1e-3,
                         help='learning rate')
-    parser.add_argument('--lr_decay', type=float, default=1.0,
+    parser.add_argument('--lr_decay', type=float, default=0.8,
                         help='decay of the learning rate each 100 episodes')
-    parser.add_argument('--num_stacked_frames', type=int, default=4,
-                        help='number of frames to stack for state representation')
+    parser.add_argument('--num_stacked_frames', type=int, default=8,
+                        help='number of frames to stack for state representation in visual banana environment')
     # replay buffer params
-    parser.add_argument('--replay_buffer_size', type=int, default=10000,
+    parser.add_argument('--replay_buffer_size', type=int, default=100000,
                         help='size of the replay buffer')
     parser.add_argument('--use_prioritized_buffer', type=bool, default=False,
                         help='if set True, use prioritized experience replay buffer')
@@ -100,21 +93,21 @@ if __name__ == '__main__':
     parser.add_argument('--e', type=float, default=1e-8,
                         help='additive constant for priorities in prioritized replay buffer')
     # dqn params
-    parser.add_argument('--tau', type=float, default=1e-3,
+    parser.add_argument('--tau', type=float, default=1e-2,
                         help='soft update for target networks')
     parser.add_argument('--update_every', type=int, default=4,
                         help='update target networks each n steps')
     # agent params
     parser.add_argument('--init_epsilon', type=float, default=1.0,
                         help='initial epsilon of the e-greedy policy')
-    parser.add_argument('--epsilon_decay', type=float, default=0.995,
+    parser.add_argument('--epsilon_decay', type=float, default=0.99,
                         help='epsilon decay')
     parser.add_argument('--min_epsilon', type=float, default=0.01,
                         help='minimum of the epsilon')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='discount factor')
     # q_net params
-    parser.add_argument('--hidden_size', type=int, default=128,
+    parser.add_argument('--hidden_size', type=list, default=[256, 128, 64],
                         help='size of the hidden layer')
     parser.add_argument('--use_gpu', type=bool, default=True,
                         help='whether use gpu or not')

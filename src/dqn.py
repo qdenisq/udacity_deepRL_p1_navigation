@@ -10,7 +10,7 @@ class DQN:
         self.__eps_decay = eps_decay
         self.__lr_decay = lr_decay
 
-    def train(self, num_episodes, target_score=18.0, verbose=1):
+    def train(self, num_episodes, target_score=13.0, verbose=1):
         solved = False
         scores = []
         losses = []
@@ -35,10 +35,10 @@ class DQN:
             if i % 100 == 0:
                 self.__agent.decay_learning_rate(self.__lr_decay)  # decay learning rate
 
-            if not solved and avg_score > target_score:
-                solved = True
-                print('\n\n----------Env solved: score = {} | num_episodes = {}| -------------\n\n'.format(avg_score, i - 100))
-                return scores, losses
+            # if not solved and avg_score > target_score:
+            #     solved = True
+            #     print('\n\n----------Env solved: score = {} | num_episodes = {}| -------------\n\n'.format(avg_score, i - 100))
+            #     return scores, losses
             if verbose:  # print routine
                 print("\r|progress: {:.1f}%| episode: {}| score: {}| avg score: {:.2f}| loss: {:.2f}| avg_loss: {:.2f}\n"
                       .format(i * 100 / num_episodes, i, score, avg_score, loss, avg_loss), end='')
